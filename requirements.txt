@@ -1,0 +1,7 @@
+diffusers==0.27.2
+transformers
+onnxruntime_gpu
+opencv-python
+accelerate
+numpy <= 1.26
+scipy==1.13 

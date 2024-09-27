@@ -22,14 +22,8 @@ pip install -r requirements.txt
 **Image-to-MVImage** 
 
 ```bash 
-import torch 
-import numpy as np 
-from PIL import Image 
-from pipeline import Unique3dDiffusionPipeline
-
-
 pipe = Unique3dDiffusionPipeline.from_pretrained( 
-    "Luffuly/unique3d-mv-variation-diffuser", 
+    "Luffuly/unique3d-mvimage-diffuser", 
     torch_dtype=torch.float16, 
     trust_remote_code=True,  
     class_labels=torch.tensor(range(4)),
@@ -39,7 +33,7 @@ seed = -1
 generator = torch.Generator(device='cuda').manual_seed(-1)
 
 
-image = Image.open('image.png') 
+image = Image.open('data/boy.png') 
 forward_args = dict(
     width=256,
     height=256,
@@ -53,7 +47,7 @@ forward_args = dict(
 
 out = pipe(image, **forward_args).images
 rgb_np = np.hstack([np.array(img) for img in out])
-Image.fromarray(rgb_np).save(f"test.png")
+Image.fromarray(rgb_np).save(f"mv-boy.png")
 ```
 
 **Image-to-Normal**

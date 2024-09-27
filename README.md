@@ -56,6 +56,7 @@ Image.fromarray(np.hstack([np.array(img) for img in out])).save(f"mv-boy.png")
 ```
 
 **Image-to-Normal**
+
 ![mv-normal](https://github.com/user-attachments/assets/f0b56d70-d1fb-4f18-a205-f41f85ec72d7)
 ```bash    
 generator = torch.Generator(device='cuda').manual_seed(-1)

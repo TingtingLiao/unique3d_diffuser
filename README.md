@@ -21,6 +21,9 @@ pip install -r requirements.txt
 
 **Image-to-MVImage** 
 
+![mv-boy](https://github.com/user-attachments/assets/65558519-dbfe-40de-ac13-5d78527541c5)
+
+
 ```bash 
 pipe = Unique3dDiffusionPipeline.from_pretrained( 
     "Luffuly/unique3d-mvimage-diffuser", 

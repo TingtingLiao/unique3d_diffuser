@@ -25,6 +25,11 @@ pip install -r requirements.txt
 
 
 ```bash 
+import torch 
+import numpy as np 
+from PIL import Image 
+from pipeline import Unique3dDiffusionPipeline
+
 pipe = Unique3dDiffusionPipeline.from_pretrained( 
     "Luffuly/unique3d-mvimage-diffuser", 
     torch_dtype=torch.float16, 
@@ -32,11 +37,8 @@ pipe = Unique3dDiffusionPipeline.from_pretrained(
     class_labels=torch.tensor(range(4)),
 ).to("cuda")
 
-seed = -1    
-generator = torch.Generator(device='cuda').manual_seed(-1)
 
-
-image = Image.open('data/boy.png') 
+generator = torch.Generator(device='cuda').manual_seed(-1) 
 forward_args = dict(
     width=256,
     height=256,
@@ -48,13 +50,41 @@ forward_args = dict(
     guidance_scale=1.5,  
 ) 
 
-out = pipe(image, **forward_args).images
-rgb_np = np.hstack([np.array(img) for img in out])
-Image.fromarray(rgb_np).save(f"mv-boy.png")
+image = Image.open('data/boy.png') 
+out = pipe(image, **forward_args).images 
+Image.fromarray(np.hstack([np.array(img) for img in out])).save(f"mv-boy.png")
 ```
 
 **Image-to-Normal**
+![mv-normal](https://github.com/user-attachments/assets/f0b56d70-d1fb-4f18-a205-f41f85ec72d7)
+```bash    
+generator = torch.Generator(device='cuda').manual_seed(-1)
+forward_args = dict(
+    width=512,
+    height=512, 
+    width_cond=512,
+    height_cond=512, 
+    generator=generator,
+    guidance_scale=1.5,   
+    num_inference_steps=30, 
+    num_images_per_prompt=1, 
+)  
 
+pipe = Unique3dDiffusionPipeline.from_pretrained( 
+    "Luffuly/unique3d-normal-diffuser", 
+    torch_dtype=torch.bfloat16, 
+    trust_remote_code=True,  
+).to("cuda")  
+ 
+image = [
+    Image.open(img).convert("RGB") for img in [
+        'data/boy.png',
+        'data/belle.png', 
+    ]
+]  
+out = pipe(image, **forward_args).images   
+Image.fromarray(np.hstack([np.array(img) for img in out])).save(f"normals.png")
+```
 
 ## Citation  
 ```

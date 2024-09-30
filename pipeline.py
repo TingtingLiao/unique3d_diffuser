@@ -36,10 +36,10 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
             image = image.convert("RGB")
         elif isinstance(image, List):
             image = [img.convert("RGB") for img in image]
-            
-        images = self.image_processor.preprocess(image, height=height, width=width)
-        images = images.to(self._execution_device, dtype=self.dtype) 
-        latents = self.vae.encode(images).latent_dist.mode() * self.vae.config.scaling_factor
+        
+        image = self.image_processor.preprocess(image, height=height, width=width)
+        image = image.to(self._execution_device, dtype=self.dtype) 
+        latents = self.vae.encode(image).latent_dist.mode() * self.vae.config.scaling_factor
         return latents
     
     def decode_latents(self, latents): 
@@ -71,14 +71,14 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
     @torch.no_grad()
     def produce_latent(
         self, latents, cond_latents, embeddings, 
-        num_inference_steps=50, 
-        strength=0, 
+        num_inference_steps=50,  
+        init_step=0, 
         guidance_scale=1.5, 
         extra_step_kwargs=dict(),
     ):
         timesteps = self.scheduler.timesteps  
         with self.progress_bar(total=num_inference_steps) as pbar:  
-            for i, t in enumerate(timesteps[int(len(timesteps)*strength):]): 
+            for i, t in enumerate(timesteps[init_step:]): 
                 latent_model_input = torch.cat([latents] * 2)  
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)  
 
@@ -126,6 +126,7 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
         width = width or self.unet.config.sample_size * self.vae_scale_factor 
         self.scheduler.set_timesteps(num_inference_steps, device=device) 
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
+        init_step = min(int(len(self.scheduler.timesteps)*strength), len(self.scheduler.timesteps)-1)  
         
         # embeddings
         image_embeddings = self.encode_image(image, num_images_per_prompt)
@@ -152,7 +153,7 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
         
         # optimize latents
         latents = self.produce_latent(
-            latents, cond_latents, image_embeddings, num_inference_steps, strength, guidance_scale, extra_step_kwargs
+            latents, cond_latents, image_embeddings, num_inference_steps, init_step, guidance_scale, extra_step_kwargs
             )  
         
         # decode 
@@ -185,12 +186,13 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta) 
         emb_image = image if emb_image is None else emb_image
         self.scheduler.set_timesteps(num_inference_steps)
+        init_step = min(int(len(self.scheduler.timesteps)*strength), len(self.scheduler.timesteps)-1)  
         
         # embeddings 
         image_embeddings = self.encode_image(emb_image, num_images_per_prompt)
 
         # condition latents
-        cond_latents = self.encode_latents(emb_image, height_cond, width_cond)
+        cond_latents = self.encode_latents(emb_image, height_cond, width_cond) 
         cond_latents = torch.cat([torch.zeros_like(cond_latents), cond_latents])
         if num_images_per_prompt > 1:
             cond_latents = torch.stack([cond_latents] * num_images_per_prompt, 1).reshape(-1, *cond_latents.shape[1:])
@@ -218,8 +220,7 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
                 image_embeddings.dtype,
                 device,
                 generator, 
-            )
-            init_step = int(len(self.scheduler.timesteps)*strength)  
+            ) 
             latents = self.scheduler.add_noise(latents, noise, self.scheduler.timesteps[init_step])
         
         if self.class_labels is not None:
@@ -227,11 +228,15 @@ class Unique3dDiffusionPipeline(StableDiffusionImageVariationPipeline):
             
         # optimize latents
         latents = self.produce_latent(
-            latents, cond_latents, image_embeddings, num_inference_steps, strength, guidance_scale, extra_step_kwargs
+            latents, cond_latents, image_embeddings, num_inference_steps, init_step, guidance_scale, extra_step_kwargs
             )
         
         # decode 
         image = self.decode_latents(latents) 
-        image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=[True]*len(image))
+        
+        if output_type == "pil":
+            image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=[True]*len(image))
+        else:
+            image = ((image + 1) / 2).clamp(0, 1) # [B, 3, H, W]
 
-        return image
+        return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=None)
